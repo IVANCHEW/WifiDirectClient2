@@ -30,10 +30,13 @@ public class DataTransmission implements Runnable{
     int transfer_count = 0;
     private MainActivity mActivity;
     DataManagement dm;
-    //OutputStream os = null;
-    BufferedOutputStream bos = null;
+    OutputStream os = null;
+
     Socket clientSocket = null;
 
+    // BUFFERED STREAM MANAGEMENT
+    int buffer_count = 0;
+    BufferedOutputStream bos = null;
 
     public DataTransmission(MainActivity activity, int p, WifiP2pInfo info, DataManagement d){
         Log.d(TAG,"Data Transmission Class Called");
@@ -60,8 +63,8 @@ public class DataTransmission implements Runnable{
             Log.d(TAG,"=========Client Socket Details=========");
             Log.d(TAG,"Send Buffer Size: " + clientSocket.getSendBufferSize());
             Log.d(TAG,"Receive Buffer Size: " + clientSocket.getReceiveBufferSize());
-            //os = clientSocket.getOutputStream();
-            bos = new BufferedOutputStream(clientSocket.getOutputStream(), 1024 * 100);
+            os = clientSocket.getOutputStream();
+            //bos = new BufferedOutputStream(clientSocket.getOutputStream(), 1024 * 100);
 
         }catch (IOException e) {
             Log.d(TAG, "Client Service Error, IO Exception: " + e.getMessage());
@@ -71,8 +74,7 @@ public class DataTransmission implements Runnable{
         Log.d(TAG,"Data Transmission Initialisation Completed");
 
         Log.d(TAG,"Begin Transmission Wait Loop");
-        // BUFFERED STREAM MANAGEMENT
-        int buffer_count = 0;
+
         image_height = dm.getImageHeight();
         image_width = dm.getImageWidth();
 
@@ -92,15 +94,7 @@ public class DataTransmission implements Runnable{
             }
 
             // FLUSH BUFFER AFTER 10 FRAMES LOADED
-            buffer_count = buffer_count + 1;
-            if(buffer_count==5){
-                Log.d(TAG,"Flushing Buffer");
-                try{
-                    bos.flush();
-                }catch (IOException e) {
-                    Log.d(TAG, "Client Service Error, IO Exception: " + e.getMessage());
-                }
-            }
+            //flushBuffer();
 
             //Delay before retrieving next frame
             synchronized (this) {
@@ -142,7 +136,8 @@ public class DataTransmission implements Runnable{
 
         //Log.d(TAG, "Sending First Packet");
         try {
-            bos.write(transfer_length, 0, transfer_length.length);
+            //bos.write(transfer_length, 0, transfer_length.length);
+            os.write(transfer_length, 0, transfer_length.length);
         } catch (IOException e) {
             Log.d(TAG, "Client Service Error, IO Exception: " + e.getMessage());
         }
@@ -157,7 +152,8 @@ public class DataTransmission implements Runnable{
             }
             try{
                 //Log.d(TAG,"Output stream, marker position: " + marker + " write: " + write);
-                bos.write(pictureData, marker, write);
+                os.write(pictureData, marker, write);
+                //bos.write(pictureData, marker, write);
             } catch (IOException e) {
                 Log.d(TAG, "Client Service Error, IO Exception: " + e.getMessage());
             }
@@ -199,5 +195,17 @@ public class DataTransmission implements Runnable{
             value += (b[i] & 0x000000FF) << shift;
         }
         return value;
+    }
+
+    public void flushBuffer(){
+        buffer_count = buffer_count + 1;
+        if(buffer_count==5){
+            Log.d(TAG,"Flushing Buffer");
+            try{
+                bos.flush();
+            }catch (IOException e) {
+                Log.d(TAG, "Client Service Error, IO Exception: " + e.getMessage());
+            }
+        }
     }
 }

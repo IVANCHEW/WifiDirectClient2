@@ -88,7 +88,7 @@ public class Preview extends GLSurfaceView implements SurfaceHolder.Callback, Ca
         //previewSize = resSize.get(7);
 
         // FOR BT-200
-        previewSize = resSize.get(3);
+        previewSize = resSize.get(0);
 
         //Constant for NV21 format is 17
         //param.setPreviewFormat(17);
