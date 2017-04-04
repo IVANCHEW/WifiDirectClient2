@@ -23,13 +23,14 @@ public class DataTransmission implements Runnable{
     private int port;
     private byte[] nv21_buffer;
     private byte[] pictureData, audioData;
+    int image_height, image_width;
     InetAddress targetIP;
     WifiP2pInfo wifiP2pInfo;
 
     int transfer_count = 0;
     private MainActivity mActivity;
     DataManagement dm;
-    OutputStream os = null;
+    //OutputStream os = null;
     BufferedOutputStream bos = null;
     Socket clientSocket = null;
 
@@ -54,14 +55,13 @@ public class DataTransmission implements Runnable{
             clientSocket = new Socket(targetIP,port);
             clientSocket.setPerformancePreferences(0 , 1, 1);
             clientSocket.setTcpNoDelay(true);
-            //clientSocket.setSendBufferSize(1024*1024);
             clientSocket.setSendBufferSize(1024*1024);
             clientSocket.setReceiveBufferSize(1024*1024);
             Log.d(TAG,"=========Client Socket Details=========");
             Log.d(TAG,"Send Buffer Size: " + clientSocket.getSendBufferSize());
             Log.d(TAG,"Receive Buffer Size: " + clientSocket.getReceiveBufferSize());
-            os = clientSocket.getOutputStream();
-            os = new BufferedOutputStream(clientSocket.getOutputStream());
+            //os = clientSocket.getOutputStream();
+            bos = new BufferedOutputStream(clientSocket.getOutputStream(), 1024 * 100);
 
         }catch (IOException e) {
             Log.d(TAG, "Client Service Error, IO Exception: " + e.getMessage());
@@ -71,7 +71,13 @@ public class DataTransmission implements Runnable{
         Log.d(TAG,"Data Transmission Initialisation Completed");
 
         Log.d(TAG,"Begin Transmission Wait Loop");
+        // BUFFERED STREAM MANAGEMENT
+        int buffer_count = 0;
+        image_height = dm.getImageHeight();
+        image_width = dm.getImageWidth();
+
         while (true){
+
             //Check if Wifi P2P is connected
             if (dm.getConnectionStatus()){
                 //Check if image and Audio are available
@@ -84,6 +90,18 @@ public class DataTransmission implements Runnable{
                     //Log.d(TAG,"Image not ready");
                 }
             }
+
+            // FLUSH BUFFER AFTER 10 FRAMES LOADED
+            buffer_count = buffer_count + 1;
+            if(buffer_count==5){
+                Log.d(TAG,"Flushing Buffer");
+                try{
+                    bos.flush();
+                }catch (IOException e) {
+                    Log.d(TAG, "Client Service Error, IO Exception: " + e.getMessage());
+                }
+            }
+
             //Delay before retrieving next frame
             synchronized (this) {
                 try {
@@ -112,33 +130,24 @@ public class DataTransmission implements Runnable{
         int write;
         int marker=0;
         int picture_length;
+
+        // PREPARING IMAGE DATA FOR TRANSMISSION
         nv21_buffer = dm.getImage();
-        YuvImage yuv = new YuvImage(nv21_buffer, 17, 640, 480, null);
+        YuvImage yuv = new YuvImage(nv21_buffer, 17, image_width, image_height, null);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        //yuv.compressToJpeg(new Rect(50, 50, 590, 430), 100, out);
-        yuv.compressToJpeg(new Rect(0, 0, 640, 480), 50, out);
+        yuv.compressToJpeg(new Rect(0, 0, image_width, image_height), 50, out);
         pictureData = out.toByteArray();
         byte[] transfer_length  = ByteBuffer.allocate(4).putInt(pictureData.length).array();
         picture_length = pictureData.length;
 
-        /*
-        byte[] transfer = dm.getImage();
-        byte[] transfer_length  = ByteBuffer.allocate(4).putInt(transfer.length).array();
-        */
-
-        //int test_length = byteArrayToInt(transfer_length);
-        //Log.d(TAG, "Transfer length test: " + test_length);
-
-        Log.d(TAG, "Client: Preparing to send");
-        Log.d(TAG, "Sending First Packet");
+        //Log.d(TAG, "Sending First Packet");
         try {
-            os.write(transfer_length, 0, transfer_length.length);
+            bos.write(transfer_length, 0, transfer_length.length);
         } catch (IOException e) {
             Log.d(TAG, "Client Service Error, IO Exception: " + e.getMessage());
         }
 
-        Log.d(TAG, "Sending Second Packet");
-        Log.d(TAG,"Length of data: " + picture_length);
+        Log.d(TAG,"Sending Second Packet, Length of data: " + picture_length);
         while(marker < picture_length){
 
             if(picture_length - marker >=1024){
@@ -148,7 +157,7 @@ public class DataTransmission implements Runnable{
             }
             try{
                 //Log.d(TAG,"Output stream, marker position: " + marker + " write: " + write);
-                os.write(pictureData, marker, write);
+                bos.write(pictureData, marker, write);
             } catch (IOException e) {
                 Log.d(TAG, "Client Service Error, IO Exception: " + e.getMessage());
             }
@@ -156,9 +165,10 @@ public class DataTransmission implements Runnable{
         }
         dm.unloadImage();
 
+        /*
         audioData = dm.getAudio();
         while(audioData==null){
-            Log.d(TAG,"Null audio data");
+            //Log.d(TAG,"Null audio data");
             try{
                 Thread.sleep(100);
             }catch (InterruptedException e) {
@@ -167,44 +177,18 @@ public class DataTransmission implements Runnable{
             audioData = dm.getAudio();
         }
 
-        Log.d(TAG,"Sending Third Packet");
+        //Log.d(TAG,"Sending Third Packet");
         try {
-            Log.d(TAG,"Writing Audio Data of length: " + audioData.length);
+            //Log.d(TAG,"Writing Audio Data of length: " + audioData.length);
             os.write(audioData, 0, audioData.length);
         } catch (IOException e) {
             Log.d(TAG, "Client Service Error, IO Exception: " + e.getMessage());
         }
         dm.unloadAudio();
-
-        //FLUSH
-        /*
-        try{
-            os.write("\n".getBytes());
-            os.flush();
-        }catch (IOException e) {
-            Log.d(TAG, "Client Service Error, IO Exception: " + e.getMessage());
-        }
         */
 
         Log.d(TAG,"Send Complete");
 
-        /*
-        try {
-            os.write(transfer_length, 0, transfer_length.length);
-           // Log.d("NEUTRAL","Size of transfer length: " + transfer_length.length);
-            //os.write(transfer, 0, transfer.length);
-            //Log.d("NEUTRAL","Size of data transfer: " + transfer.length);
-            os.write(pictureData, 0, pictureData.length);
-            Log.d("NEUTRAL","Size of data transfer: " + pictureData.length);
-
-            //os.flush();
-           // os.close();
-            //Log.d(TAG, "Send Complete");
-            dm.unloadImage();
-        } catch (IOException e) {
-            Log.d(TAG, "Client Service Error, IO Exception: " + e.getMessage());
-        }
-        */
     }
 
     public static int byteArrayToInt(byte[] b)

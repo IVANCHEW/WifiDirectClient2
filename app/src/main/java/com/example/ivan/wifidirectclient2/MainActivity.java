@@ -94,7 +94,7 @@ public class MainActivity extends Activity implements WifiP2pManager.PeerListLis
         dt = new DataTransmission(this, port,wifiP2pInfo,dm);
 
         //SET AUDIO
-        audio = new Audio(dm);
+        //audio = new Audio(dm);
 
         button_start_server = (Button)findViewById(R.id.button_start_server);
         button_start_server.setOnClickListener(new View.OnClickListener(){
@@ -151,7 +151,7 @@ public class MainActivity extends Activity implements WifiP2pManager.PeerListLis
         dt_thread = new Thread(dt);
         dt_thread.start();
 
-        a_thread = new Thread(audio);
-        a_thread.start();
+        //a_thread = new Thread(audio);
+        //a_thread.start();
     }
 }
