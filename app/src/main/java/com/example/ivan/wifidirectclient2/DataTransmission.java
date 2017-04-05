@@ -73,10 +73,12 @@ public class DataTransmission implements Runnable{
 
         transmissionReady = true;
 
-        Log.d(TAG,"Send Configuration Data to Server");
+        //Log.d(TAG,"Send Configuration Data to Server");
+        /*
         if(dm.getConnectionStatus()){
             sendConfigurationData();
         }
+        */
 
         Log.d(TAG,"Begin Transmission Wait Loop");
         while (true){
@@ -152,6 +154,7 @@ public class DataTransmission implements Runnable{
         }
         dm.unloadImage();
 
+        /*
         audioData = dm.getAudio();
         while(audioData==null){
             //Log.d(TAG,"Null audio data");
@@ -171,6 +174,7 @@ public class DataTransmission implements Runnable{
             Log.d(TAG, "Client Service Error, IO Exception: " + e.getMessage());
         }
         dm.unloadAudio();
+        */
 
         //Log.d(TAG,"Send Complete");
     }
